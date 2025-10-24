@@ -1,7 +1,7 @@
 Welcome to API-Integration-Keycloak
 
 Because of i don't have the frond-end yet, please use keycloak theme front-end; that can be acces on: 
-` ```http://localhost:8080/realms/tests-dev/protocol/openid-connect/auth?response_type=code&client_id=<client_name>&redirect_uri=http://<web-origin-client>/callback&scope=openid%20profile%20email``` `
+`http://localhost:8080/realms/tests-dev/protocol/openid-connect/auth?response_type=code&client_id=<client_name>&redirect_uri=http://<web-origin-client>/callback&scope=openid%20profile%20email`
 
 When already log-in using url above, copy the code to on the redirect link and paste it on API Login request body.
 example: 
