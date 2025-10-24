@@ -1,0 +1,542 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+datasource satria {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator satriaClient {
+  provider      = "prisma-client-js"
+  output        = "../prisma/generated/satria-client"
+  binaryTargets = ["native", "windows", "darwin", "darwin-arm64", "linux-musl-arm64-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+model Menu {
+  mm_id  Int @id @default(autoincrement())
+  mm_parent_id Int
+  mm_name String @unique
+  mm_url String
+  mm_icon String
+  mm_order String
+  mm_type String
+  roleDetails  RoleDetail[]  @relation("MenuToRoleDetail")
+
+  @@map("mst_menu")
+}
+
+model Role {
+  mr_id       Int       @id @default(autoincrement())
+  mr_name     String @unique
+  mr_description String
+  mr_type     String?
+  mr_status   String
+  mr_created_date DateTime?
+  mr_created_by String?
+  mr_updated_date DateTime?
+  mr_updated_by String?
+
+  roleDetails     RoleDetail[]  @relation("RoleToRoleDetail")
+  userRoles       User[]  @relation("UserToRole")
+
+  @@map("mst_role")
+}
+
+model RoleDetail {
+  mrd_id  Int @id @default(autoincrement())
+  mrd_mr_id Int 
+  mrd_mm_id Int
+  mrd_permission String
+
+  role           Role     @relation("RoleToRoleDetail", fields: [mrd_mr_id], references: [mr_id], onDelete: Cascade)
+  menu           Menu     @relation("MenuToRoleDetail", fields: [mrd_mm_id], references: [mm_id], onDelete: Cascade)
+
+  @@map("mst_role_detail")
+}
+
+
+model User {
+  mu_id          Int       @id @default(autoincrement())
+  mu_username    String    @unique
+  mu_mr_id Int
+  mu_password String 
+  mu_name String
+  mu_token String?          @satria.Text
+  mu_refresh_token String?  @satria.Text
+  mu_status String
+  mu_retries Int?
+  mu_is_locked Boolean?
+  mu_restrict_date DateTime?
+  mu_created_date DateTime?
+  mu_created_by String?
+  mu_updated_date DateTime?
+  mu_updated_by String?
+
+  role           Role     @relation("UserToRole", fields: [mu_mr_id], references: [mr_id], onDelete: Cascade)
+
+  @@map("mst_user")
+}
+
+model BannerMain {
+  mbm_id Int     @id @default(autoincrement())
+  banners Banner[] @relation("BannerMainToBanner")
+
+  @@map("mst_banner_main")
+}
+
+model Banner {
+  mb_id           Int       @id @default(autoincrement())
+  mb_mbm_id       Int
+  mb_name         String    @satria.VarChar(60)
+  mb_mp_id        Int       
+  mb_status       String    @satria.VarChar(1)
+  mb_language     String    @satria.VarChar(2)
+  mb_created_date DateTime? 
+  mb_created_by   String?
+  mb_updated_date DateTime?
+  mb_updated_by   String?
+  detail          BannerDetail[]  @relation("BannerToDetails")
+  bannerMain      BannerMain      @relation("BannerMainToBanner", fields: [mb_mbm_id], references: [mbm_id], onDelete: Cascade)
+  page            Page            @relation("PageToBanner", fields: [mb_mp_id], references: [mp_id])
+
+  @@map("mst_banner")
+}
+model BannerDetail {
+  mbd_id           Int       @id @default(autoincrement())
+  mbd_mb_id        Int      
+  mbd_title        String    @satria.VarChar(60)
+  mbd_image_url    String    @satria.LongText
+  mbd_tagline      String?   @satria.VarChar(60)
+  mbd_description  String?   @satria.VarChar(255)
+  mbd_link         String?   @satria.VarChar(255)
+  banner           Banner    @relation("BannerToDetails", fields: [mbd_mb_id], references: [mb_id], onDelete: Cascade)
+
+  @@map("mst_banner_detail")
+}
+
+model TestimonialMain {
+  mtm_id Int @id @default(autoincrement())
+  testimonial Testimonial[] @relation("TestimonialMainToTestimonial")
+
+  @@map("mst_testimonial_main")
+}
+
+model Testimonial {
+  mt_id              Int       @id @default(autoincrement())
+  mt_mtm_id          Int
+  mt_company_name    String     @satria.VarChar(60)
+  mt_pic             String     @satria.VarChar(60)
+  mt_image_url       String     @satria.LongText
+  mt_position        String     @satria.VarChar(60)
+  mt_content         String     @satria.VarChar(255)
+  mt_status          String     @satria.VarChar(1)
+  mt_approval_status String     @satria.VarChar(1)
+  mt_language        String     @satria.VarChar(2)
+  mt_created_date    DateTime? 
+  mt_created_by      String?
+  mt_updated_date    DateTime?
+  mt_updated_by      String?
+  testimonialMain    TestimonialMain @relation("TestimonialMainToTestimonial", fields: [mt_mtm_id], references: [mtm_id], onDelete: Cascade)
+
+  @@map("mst_testimonial")
+}
+model Leads {
+  ml_id           Int     @id @default(autoincrement())
+  ml_name         String
+  ml_phone        String
+  ml_email        String
+  ml_category     String
+  ml_city         String
+  ml_company      String
+  ml_desc         String
+  ml_status       String
+  ml_result       String?  @satria.VarChar(500)
+  ml_created_date DateTime?
+  ml_created_by   String?
+  ml_updated_date DateTime?
+  ml_updated_by   String?
+
+  @@map("mst_leads")
+}
+
+model ProductCategoryMain {
+  mpcm_id Int @id @default(autoincrement())
+  productCategory ProductCategory[] @relation("ProductCategoryMainToProductCategory")
+  shipBuildingMains ShipBuildingMain[] @relation("ProductCategoryMainToShipBuildingMain")
+  @@map("mst_product_category_main")
+}
+
+model ProductCategory {
+  mpc_id              Int      @id @default(autoincrement())
+  mpc_mpcm_id         Int
+  mpc_title           String
+  mpc_description     String   @satria.VarChar(500)
+  mpc_image_url       String   @satria.VarChar(255)
+  mpc_status          String
+  mpc_language        String
+  mpc_created_date    DateTime?
+  mpc_created_by      String?
+  mpc_updated_date    DateTime?
+  mpc_updated_by      String?
+  productCategoryMain ProductCategoryMain @relation("ProductCategoryMainToProductCategory", fields: [mpc_mpcm_id], references: [mpcm_id], onDelete: Cascade)
+
+  @@map("mst_product_category")
+}
+
+model ShipBuildingMain {
+  msbm_id Int @id @default(autoincrement())
+  msbm_mpcm_id Int
+
+  shipBuildings ShipBuilding[] @relation("ShipBuildingMainToShipBuilding")
+  productCategoryMain  ProductCategoryMain @relation("ProductCategoryMainToShipBuildingMain", fields: [msbm_mpcm_id], references: [mpcm_id], onDelete: Cascade)
+
+  @@map("mst_ship_building_main")
+}
+
+model ShipBuilding {
+  msb_id            Int     @id @default(autoincrement())
+  msb_msbm_id       Int
+  msb_name          String
+  msb_status        String
+  msb_language      String
+  msb_created_date  DateTime?
+  msb_created_by    String?
+  msb_updated_date  DateTime?
+  msb_updated_by    String?
+  shipDetails       ShipBuildingDetail[] @relation("ShipBuildingToDetail")
+  shipBuildingMain  ShipBuildingMain @relation("ShipBuildingMainToShipBuilding", fields: [msb_msbm_id], references: [msbm_id], onDelete: Cascade)
+
+  @@map("mst_ship_building")
+}
+
+model ShipBuildingDetail {
+  msbd_id           Int     @id @default(autoincrement())
+  msbd_msb_id       Int
+  msbd_title        String
+  msbd_type         String
+  msbd_description  String  @satria.VarChar(255)
+  msbd_tagline      String?
+  msbd_image_url    String  @satria.LongText
+  msbd_order        Int
+  shipBuilding      ShipBuilding @relation("ShipBuildingToDetail", fields: [msbd_msb_id], references: [msb_id], onDelete: Cascade)
+
+  @@map("mst_ship_building_detail")
+}
+
+model Customer {
+  mc_id              Int      @id @default(autoincrement())
+  mc_name            String
+  mc_logo            String   @satria.LongText
+  mc_status          String   
+  mc_approval_status String
+  mc_created_date    DateTime
+  mc_created_by      String
+  mc_updated_date    DateTime
+  mc_updated_by      String
+
+  @@map("mst_customer")
+}
+
+model NewsCategory {
+  mnc_id           Int       @id @default(autoincrement())
+  mnc_name         String    @unique
+  mnc_abbreviation String
+  mnc_desc         String
+  mnc_created_date DateTime
+  mnc_created_by   String
+  mnc_updated_date DateTime
+  mnc_updated_by   String
+
+  // Relation to Table
+  mediaRooms       MediaRoom[]  @relation("NewsCategoryToMediaRoom")
+
+  @@map("mst_news_category")
+}
+
+model MediaRoomMain {
+  mmrm_id          Int       @id @default(autoincrement())
+
+  // Relation to Table
+  mediaRooms       MediaRoom[]   @relation("MediaRoomMainToMediaRoom")
+
+  @@map("mst_media_room_main")
+}
+
+model MediaRoom {
+  mmr_id              Int       @id @default(autoincrement())
+  mmr_mmrm_id         Int       
+  mmr_mnc_id          Int
+  mmr_title           String    @satria.VarChar(255)
+  mmr_thumbnail       String    @satria.LongText
+  mmr_excerpt         String    @satria.VarChar(255)
+  mmr_content         String    @satria.LongText
+  mmr_slug            String    @satria.VarChar(255)
+  mmr_publish_date    DateTime
+  mmr_meta_title      String    @satria.VarChar(255)
+  mmr_meta_desc       String    @satria.VarChar(500)
+  mmr_status          String
+  mmr_approval_status String
+  mmr_language        String
+  mmr_created_date    DateTime
+  mmr_created_by      String
+  mmr_updated_date    DateTime
+  mmr_updated_by      String
+
+  // Relation Table
+  mediaRoomMain    MediaRoomMain  @relation("MediaRoomMainToMediaRoom", fields: [mmr_mmrm_id], references: [mmrm_id], onDelete: Cascade)
+  newsCategory     NewsCategory   @relation("NewsCategoryToMediaRoom", fields: [mmr_mnc_id], references: [mnc_id], onDelete: Cascade)
+  mediaRoomImageDetails   MediaRoomImageDetail[]   @relation("MediaRoomToMediaRoomImageDetail")
+
+  @@map("mst_media_room")
+}
+
+model MediaRoomImageDetail {
+  mmrid_id          Int       @id @default(autoincrement())
+  mmrid_mmr_id      Int
+  mmrid_image_url   String    @satria.LongText
+
+  // Relation to Table
+  mediaRooms       MediaRoom   @relation("MediaRoomToMediaRoomImageDetail", fields: [mmrid_mmr_id], references: [mmr_id], onDelete: Cascade)
+
+  @@map("mst_media_room_image_detail")
+}
+
+model CareerMain {
+  mcrm_id          Int       @id @default(autoincrement())
+
+  // Relation to Table
+  careers       Career[]    @relation("CareerMainToCareer")
+
+  @@map("mst_career_main")
+}
+
+model Career {
+  mcr_id              Int       @id @default(autoincrement())
+  mcr_mcrm_id         Int
+  mcr_name            String    @satria.VarChar(60)
+  mcr_subtitle        String    @satria.VarChar(100)
+  mcr_location        String    @satria.VarChar(60)
+  mcr_url_link        String    @satria.Text
+  mcr_due_date        DateTime
+  mcr_status          String    @satria.VarChar(1)
+  mcr_approval_status String    @satria.VarChar(1)
+  mcr_language        String    @satria.VarChar(2)
+  mcr_created_date    DateTime?
+  mcr_created_by      String?
+  mcr_updated_date    DateTime?
+  mcr_updated_by      String?
+
+  // Relation Table
+  careerMain    CareerMain  @relation("CareerMainToCareer", fields: [mcr_mcrm_id], references: [mcrm_id], onDelete: Cascade)
+  careerJobDescDetails    CareerJobDescDetail[] @relation("CareerToCareerJobDescDetail")
+  careerJobReqDetails    CareerJobReqDetail[] @relation("CareerToCareerJobReqDetail")
+
+  @@map("mst_career")
+}
+
+model CareerJobDescDetail {
+  mcrjdd_id          Int      @id @default(autoincrement())
+  mcrjdd_mcr_id      Int
+  mcrjdd_job_desc    String   @satria.Text
+
+  // Relation Table
+  career Career @relation("CareerToCareerJobDescDetail", fields: [mcrjdd_mcr_id], references: [mcr_id], onDelete: Cascade)
+
+  @@map("mst_career_job_desc_detail")
+}
+
+model CareerJobReqDetail {
+  mcrjrd_id                 Int      @id @default(autoincrement())
+  mcrjrd_mcr_id             Int
+  mcrjrd_job_requirement    String   @satria.Text
+
+  // Relation Table
+  career Career @relation("CareerToCareerJobReqDetail", fields: [mcrjrd_mcr_id], references: [mcr_id], onDelete: Cascade)
+
+  @@map("mst_career_job_req_detail")
+}
+
+model Page {
+  mp_id   Int     @id @default(autoincrement())
+  mp_name String  @unique
+
+  // Relation Table
+  seos     Seo[]  @relation("PageToSeo")
+  banners Banner[] @relation("PageToBanner")
+
+  @@map("mst_page")
+}
+
+model SeoMain {
+  msm_id          Int       @id @default(autoincrement())
+
+  // Relation Table
+  seos     Seo[]  @relation("SeoMainToSeo")
+
+  @@map("mst_seo_main")
+}
+
+model Seo {
+  ms_id           Int      @id @default(autoincrement())
+  ms_msm_id       Int
+  ms_mp_id        Int
+  ms_title        String  @satria.VarChar(255)
+  ms_description  String  @satria.VarChar(255)
+  ms_status       String
+  ms_language     String
+  ms_created_date DateTime
+  ms_created_by   String
+  ms_updated_date DateTime
+  ms_updated_by   String
+
+  // Relation Table
+  seoMain         SeoMain  @relation("SeoMainToSeo", fields: [ms_msm_id], references: [msm_id], onDelete: Cascade)
+  page            Page     @relation("PageToSeo", fields: [ms_mp_id], references: [mp_id], onDelete: Cascade)
+
+  @@map("mst_seo")
+}
+
+model FacilityMain {
+  mfm_id          Int       @id @default(autoincrement())
+
+  // Relation Table
+  facilities     Facility[] @relation("FacilityMainToFacility")
+
+  @@map("mst_facility_main")
+}
+
+model FacilityType {
+  mft_code   String     @id // misal: "SHIP_BUILDING"
+  facilities Facility[] @relation("TypeToFacility")
+
+  @@map("mst_facility_type")
+}
+
+model Facility {
+  mf_id           Int     @id @default(autoincrement())
+  mf_mfm_id       Int
+  mf_name         String
+  mf_title        String
+  mf_description  String    @satria.VarChar(255)
+  mf_status       String
+  mf_scheme_url   String?
+  mf_title_facility String?
+  mf_image_url    String?
+  mf_type         String
+  mf_language     String
+  mf_created_date DateTime
+  mf_created_by   String
+  mf_updated_date DateTime
+  mf_updated_by   String
+
+  // Relation Table
+  facilityDetails      FacilityDetail[] @relation("FacilityToFacilityDetail")
+  facilityMain         FacilityMain  @relation("FacilityMainToFacility", fields: [mf_mfm_id], references: [mfm_id], onDelete: Cascade)
+  facilityType         FacilityType @relation("TypeToFacility", fields: [mf_type], references: [mft_code])
+  
+  @@map("mst_facility")
+}
+
+model FacilityDetail {
+  mfd_id                    Int       @id @default(autoincrement())
+  mfd_mf_id                 Int
+  mfd_slug                  String?
+  mfd_name                  String?
+  mfd_description           String?   @satria.VarChar(500)
+  mfd_image_url             String?   @satria.VarChar(255)
+  mfd_location              String?
+  mfd_map_url               String?   @satria.LongText
+  mfd_workshop_description  String?   @satria.VarChar(255)
+
+  // Relation Table
+  facility                 Facility @relation("FacilityToFacilityDetail", fields: [mfd_mf_id], references: [mf_id], onDelete: Cascade)
+  shipFacilitySizeDetails  ShipFacilitySizeDetail[] @relation("FacilityDetailToShipFacilitySizeDetail")
+  shipFacilityItemDetails  ShipFacilityItemDetail[] @relation("FacilityDetailToShipFacilityItemDetail")
+  workshops                FacilityDetailWorkshop[] @relation("FacilityDetailToWorkshop")
+
+  @@map("mst_facility_detail")
+}
+
+model ShipFacilitySizeDetail {
+  msfsd_id        Int     @id @default(autoincrement())
+  msfsd_mfd_id    Int
+  msfsd_size      Int
+
+  // Relation Table
+  facilityDetail FacilityDetail @relation("FacilityDetailToShipFacilitySizeDetail", fields: [msfsd_mfd_id], references: [mfd_id], onDelete: Cascade)
+
+  @@map("mst_ship_facility_size_detail")
+}
+
+model FacilityDetailWorkshop {
+  mfdw_id           Int       @id @default(autoincrement())
+  mfdw_mfd_id       Int
+  mfdw_name         String    @satria.VarChar(60)
+  mfdw_description  String    @satria.VarChar(255)
+  mfdw_image_url    String    @satria.LongText
+
+  facilityDetail    FacilityDetail @relation("FacilityDetailToWorkshop", fields: [mfdw_mfd_id], references: [mfd_id], onDelete: Cascade)
+
+  @@map("mst_facility_detail_workshop")
+}
+
+model ShipFacilityItemDetail {
+  msfid_id         Int     @id @default(autoincrement())
+  msfid_mfd_id     Int
+  msfid_item       String
+
+  // Relation Table
+  facilityDetail FacilityDetail @relation("FacilityDetailToShipFacilityItemDetail", fields: [msfid_mfd_id], references: [mfd_id], onDelete: Cascade)
+
+  @@map("mst_ship_facility_item_detail")
+}
+model Sustainability {
+  msn_id              Int      @id @default(autoincrement())
+  msn_title           String   @satria.VarChar(60)
+  msn_description     String   @satria.VarChar(255)
+  msn_background_url  String   @satria.LongText
+  msn_main_image_url  String   @satria.LongText
+  msn_status          String   @satria.VarChar(1)
+  msn_language        String   @satria.VarChar(2)
+  msn_created_date    DateTime?
+  msn_created_by      String?
+  msn_updated_date    DateTime?
+  msn_updated_by      String?
+  
+  details           SustainabilityDetail[] @relation("SustainabilityMainToSustainability")
+
+  @@map("mst_sustainability")
+}
+
+model SustainabilityDetail {
+  msnd_id          Int      @id @default(autoincrement())
+  msnd_msn_id      Int
+  msnd_name        String   @satria.VarChar(60)
+  msnd_caption     String   @satria.VarChar(255)
+  msnd_tagline     String?  @satria.VarChar(60)
+  msnd_image_url   String   @satria.LongText
+
+  sustainability Sustainability @relation("SustainabilityMainToSustainability", fields: [msnd_msn_id], references: [msn_id], onDelete: Cascade)
+
+  @@map("mst_sustainability_detail")
+}
+
+model Management {
+  mma_id              Int       @id @default(autoincrement())
+  mma_name            String    @satria.VarChar(255)
+  mma_biography       String    @satria.VarChar(500)
+  mma_position        String    @satria.VarChar(255)
+  mma_image           String    @satria.LongText
+  mma_type            String
+  mma_status          String
+  mma_language        String
+  mma_created_date    DateTime
+  mma_created_by      String
+  mma_updated_date    DateTime
+  mma_updated_by      String
+
+  @@map("mst_management")
+}
