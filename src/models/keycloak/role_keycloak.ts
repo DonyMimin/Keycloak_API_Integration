@@ -8,7 +8,7 @@ export const fetchAllRoleUser = async (userId: string, token: string) => {
 };
 
 export const fetchRealmsRolesUser = async (userId: string, token: string) => {
-    const roles = await keycloakRequest("GET", `/users/${userId}/role-mappings/realms`, token);
+    const roles = await keycloakRequest("GET", `/users/${userId}/role-mappings/realm`, token);
     return roles;
 };
 

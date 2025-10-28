@@ -104,7 +104,11 @@ export const fetchUserById = async (id : string) => {
         }
 
         const user = await fetchUserByIdKeycloak(token, id);
-        return user;
+        const roleUsers = await fetchRealmsRolesUser(id, token);
+        return {
+            ...user,
+            roles: roleUsers.map((r: any) => r.name),
+        };
     } catch (err : any) {
         if (err?.isCustomError) {
             throw err;
