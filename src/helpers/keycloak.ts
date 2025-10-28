@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig } from "axios";
 
+// Password Grant Flow
 export const keycloakLogin = async (username: string, password: string) => {
   const tokenUrl = `${process.env.KEYCLOAK_BASE_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/token`;
 
