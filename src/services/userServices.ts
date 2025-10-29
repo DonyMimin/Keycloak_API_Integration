@@ -6,6 +6,7 @@ import { getCachedAdminToken, keycloakRequest } from '@helpers/keycloak';
 import { checkSameUsernameKeycloak, createUserKeycloak, disableUserKeycloak, enableUserKeycloak, fetchUserByIdKeycloak, fetchUsersKeycloak, generateSecretKey, updateUserKeycloak, updateUserPasswordKeycloak } from '@models/keycloak/user_keycloak';
 import { assignRoleToUser, deleteRoleUser, fetchRealmsRolesUser } from '@models/keycloak/role_keycloak';
 import { sendEmail } from '@helpers/email';
+import { User } from '@models/User';
 
 export const fetchUser = async (params: PaginationQueryParams, status: any) => {
   try {
@@ -158,6 +159,13 @@ export const createUser = async (data: any, creator : string) => {
 
         // Assign role to user
         await assignRoleToUser(createdUser.id, role_id, token);
+
+        // Create User on DB local
+        await User.create({
+            data: {
+                mu_reference_key: createdUser.id,
+            },
+        });
 
         // Send email
         sendEmail( email,

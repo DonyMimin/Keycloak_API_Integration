@@ -1,7 +1,6 @@
 import { GeneralErrorKey } from "@errors/general/generalErrorsKeys";
 import { throwError } from "@errors/throwError";
 import { UserErrorKey } from "@errors/user/userErrorsKeys";
-import { comparePassword, hashPassword } from "@helpers/bcrypt";
 import { getCurrentWIBDate } from "@helpers/timeHelper";
 import { User } from "@models/User";
 import { PrismaClient as SatriaClient } from "../../prisma/generated/satria-client";
@@ -98,18 +97,6 @@ export const login = async (data : any) => {
         );
         console.log("Decoded Keycloak Token:", decoded);
 
-        // Cari user di DB berdasarkan username/email dari token Keycloak
-        const existingData = await User.findUnique({
-            where: { mu_username: decoded.preferred_username },
-        });
-        if (!existingData) throwError(UserErrorKey.USER_NOT_FOUND);
-
-        if (existingData.mu_status !== "1")
-        throwError(AuthErrorKey.USER_DEACTIVATED);
-
-        const permission = await permissionFetch(existingData.mu_id);
-        if (permission.length == 0) throwError(AuthErrorKey.ROLE_DEACTIVATED);
-
         return {
             accessToken: keycloakTokens.access_token,
             refreshToken: keycloakTokens.refresh_token,
@@ -120,7 +107,6 @@ export const login = async (data : any) => {
                 email: decoded.email,
                 name: decoded.name,
             },
-            // menu: permission,
         };
         
     } catch (err : any) {
@@ -136,14 +122,6 @@ export const login = async (data : any) => {
 export const refreshToken = async (data : any) => {
     try {
         const { refreshToken } = data;
-        const existingData = await User.findFirst({
-            where: { mu_refresh_token: refreshToken },
-        });
-
-        if (!existingData) throwError(UserErrorKey.USER_NOT_FOUND)
-
-        const permission = await permissionFetch(existingData.mu_id);
-        if (permission.length == 0) throwError(AuthErrorKey.ROLE_DEACTIVATED);
         
         const keycloakTokens = await keycloakRefreshToken(refreshToken);
 
@@ -151,7 +129,6 @@ export const refreshToken = async (data : any) => {
             accessToken: keycloakTokens.access_token,
             refreshToken: keycloakTokens.refresh_token,
             expiresIn: keycloakTokens.expires_in,
-            // menu: permission,
         };
     } catch (err : any) {
         if (err?.isCustomError) {

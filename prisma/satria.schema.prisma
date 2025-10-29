@@ -5,7 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 datasource satria {
-  provider = "mysql"
+  provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
 
@@ -15,40 +15,9 @@ generator satriaClient {
   binaryTargets = ["native", "windows", "darwin", "darwin-arm64", "linux-musl-arm64-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
-model Role {
-  mr_id       Int       @id @default(autoincrement())
-  mr_name     String @unique
-  mr_description String
-  mr_type     String?
-  mr_status   String
-  mr_created_date DateTime?
-  mr_created_by String?
-  mr_updated_date DateTime?
-  mr_updated_by String?
-
-  userRoles       User[]  @relation("UserToRole")
-
-  @@map("mst_role")
-}
-
 model User {
-  mu_id          Int       @id @default(autoincrement())
-  mu_username    String    @unique
-  mu_mr_id Int
-  mu_password String 
-  mu_name String
-  mu_token String?          @satria.Text
-  mu_refresh_token String?  @satria.Text
-  mu_status String
-  mu_retries Int?
-  mu_is_locked Boolean?
-  mu_restrict_date DateTime?
-  mu_created_date DateTime?
-  mu_created_by String?
-  mu_updated_date DateTime?
-  mu_updated_by String?
-
-  role           Role     @relation("UserToRole", fields: [mu_mr_id], references: [mr_id], onDelete: Cascade)
+  mu_id               Int       @id @default(autoincrement())
+  mu_reference_key    String
 
   @@map("mst_user")
 }
