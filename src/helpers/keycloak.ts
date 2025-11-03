@@ -1,3 +1,4 @@
+import { insertRoleClientUser, insertRoleRealmUser } from "@models/keycloak/role_keycloak";
 import axios, { AxiosRequestConfig } from "axios";
 
 // Password Grant Flow
@@ -126,4 +127,17 @@ export const keycloakRequest = async <T = any>(
     console.error(`Keycloak API error [${method}] ${endpoint}:`, error.response?.data || error.message);
     throw error.response?.data || new Error("Keycloak request failed");
   }
+};
+
+export const assignRoleToUser = async (userId: string, roleId: string, token: string) => {
+    // Get role details
+    const role = await keycloakRequest("GET", `/roles-by-id/${roleId}`, token);
+    if (role.clientRole === false) {
+        // Realm-level role (recommended)
+        await insertRoleRealmUser(userId, role.id, role.name, token);
+    } else {
+        // Client-level role (assuming role.containerId is the client ID)
+        await insertRoleClientUser(userId, role.id, role.name, role.containerId, token);
+    }
+    return role;
 };

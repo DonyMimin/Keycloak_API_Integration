@@ -2,9 +2,9 @@ import { PaginationQueryParams } from '../types/PaginationQueryParams';
 import { throwError } from '@errors/throwError';
 import { GeneralErrorKey } from '@errors/general/generalErrorsKeys';
 import { UserErrorKey } from '@errors/user/userErrorsKeys';
-import { getCachedAdminToken, keycloakRequest } from '@helpers/keycloak';
+import { assignRoleToUser, getCachedAdminToken, keycloakRequest } from '@helpers/keycloak';
 import { checkSameUsernameKeycloak, createUserKeycloak, disableUserKeycloak, enableUserKeycloak, fetchUserByIdKeycloak, fetchUsersKeycloak, generateSecretKey, updateUserKeycloak, updateUserPasswordKeycloak } from '@models/keycloak/user_keycloak';
-import { assignRoleToUser, deleteRoleUser, fetchRealmsRolesUser } from '@models/keycloak/role_keycloak';
+import { deleteRoleUser, fetchRealmsRolesUser } from '@models/keycloak/role_keycloak';
 import { sendEmail } from '@helpers/email';
 import { User } from '@models/User';
 

@@ -48,31 +48,21 @@ export const updateRoleKeycloak = async (roleId: string, token: string, dataToUp
     });
 }
 
-export const assignRoleToUser = async (userId: string, roleId: string, token: string) => {
-    // Get role details
-    const role = await keycloakRequest("GET", `/roles-by-id/${roleId}`, token);
-    if (!role) {
-        throwError(RoleErrorKey.ROLE_NOT_FOUND, "Role not found");
-    }
-    try {
-        if (role.clientRole === false) {
-            // Realm-level role (recommended)
-            await keycloakRequest("POST", `/users/${userId}/role-mappings/realm`, token, {
-                data: [{ id: role.id, name: role.name }],
-            });
-        } else {
-            // Client-level role (assuming role.containerId is the client ID)
-            await keycloakRequest("POST", `/users/${userId}/role-mappings/clients/${role.containerId}`, token, {
-                data: [{ id: role.id, name: role.name }],
-            });
-        }
-        console.log(`Successfully assigned role '${role.name}' to user ${userId}`);
-        return role;
-    } catch (err) {
-        console.error(`Failed to assign role to user ${userId}:`, (err as Error)?.message);
-        throwError(RoleErrorKey.ROLE_ASSIGN_FAILED, "Failed to assign role to user");
-    }
-};
+export const insertRoleRealmUser = async (userId: string, role_id: string, role_name: string, token: string) => {
+    // Realm-level role (recommended)
+    const role = await keycloakRequest("POST", `/users/${userId}/role-mappings/realm`, token, {
+        data: [{ id: role_id, name: role_name }],
+    });
+    return role;
+}
+
+export const insertRoleClientUser = async (userId: string, role_id: string, role_name: string, role_containerId: string, token: string) => {
+    // Client-level role (assuming role.containerId is the client ID)
+    const role = await keycloakRequest("POST", `/users/${userId}/role-mappings/clients/${role_containerId}`, token, {
+        data: [{ id: role_id, name: role_name }],
+    });
+    return role;
+}
 
 export const deleteRoleUser = async (userId: string, token: string) => {
     const existingUserRoles = await fetchAllRoleUser(userId, token);
