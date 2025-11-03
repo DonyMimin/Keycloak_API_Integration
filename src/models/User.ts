@@ -3,25 +3,29 @@ import { PrismaClient as SatriaClient } from "../../prisma/generated/satria-clie
 // Inisialisasi Prisma Client
 const prisma = new SatriaClient();
 
+type MediaRoomClient = Pick<SatriaClient, "user">;
+
 // Model User
-export const User = {
+export const createUserModel = (client: MediaRoomClient) => ({
   // Mendapatkan pengguna berdasarkan ID
-  findUnique: prisma.user.findUnique,
+  findUnique: client.user.findUnique,
 
   // Mendapatkan semua pengguna
-  findMany: prisma.user.findMany,
+  findMany: client.user.findMany,
 
   // Membuat pengguna baru
-  create: prisma.user.create,
+  create: client.user.create,
 
   // Memperbarui pengguna
-  update: prisma.user.update,
+  update: client.user.update,
 
   // Menghapus pengguna
-  delete: prisma.user.delete,
+  delete: client.user.delete,
 
   // Fungsi lain yang terkait dengan model user
-  count: prisma.user.count,
-  findFirst: prisma.user.findFirst,
-  upsert: prisma.user.upsert,
-};
+  count: client.user.count,
+  findFirst: client.user.findFirst,
+  upsert: client.user.upsert,
+});
+
+export const User = createUserModel(prisma);

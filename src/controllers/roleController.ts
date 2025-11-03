@@ -2,8 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { createRole, updateRole, fetchRole, fetchRoleById, fetchRoleList } from '@services/roleServices';
 import { successResponse } from '@helpers/responseFormatter';
 import { AuthenticatedRequest } from '@middleware/auth';
-import { throwError } from '@errors/throwError';
-import { GeneralErrorKey } from '@errors/general/generalErrorsKeys';
 
 export const fetchRoleController = async (req: Request, res: Response, next: NextFunction) => {
     try {

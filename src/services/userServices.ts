@@ -6,7 +6,8 @@ import { assignRoleToUser, getCachedAdminToken, keycloakRequest } from '@helpers
 import { checkSameUsernameKeycloak, createUserKeycloak, disableUserKeycloak, enableUserKeycloak, fetchUserByIdKeycloak, fetchUsersKeycloak, generateSecretKey, updateUserKeycloak, updateUserPasswordKeycloak } from '@models/keycloak/user_keycloak';
 import { deleteRoleUser, fetchRealmsRolesUser } from '@models/keycloak/role_keycloak';
 import { sendEmail } from '@helpers/email';
-import { User } from '@models/User';
+import { createUserModel } from '@models/User';
+import { Transaction } from '@helpers/transaction';
 
 export const fetchUser = async (params: PaginationQueryParams, status: any) => {
   try {
@@ -105,7 +106,15 @@ export const fetchUserById = async (id : string) => {
         }
 
         const user = await fetchUserByIdKeycloak(token, id);
-        const roleUsers = await fetchRealmsRolesUser(id, token);
+        if (!user) {
+            throwError(UserErrorKey.USER_NOT_FOUND, "User not found");
+        }
+
+        let roleUsers = await fetchRealmsRolesUser(id, token);
+        if (!roleUsers) {
+            throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR, "Roles not found on user");
+        }
+
         return {
             ...user,
             roles: roleUsers.map((r: any) => r.name),
@@ -142,7 +151,7 @@ export const createUser = async (data: any, creator : string) => {
         }
 
         // Buat user baru di Keycloak
-        await createUserKeycloak(token, {
+        const createResult = await createUserKeycloak(token, {
             username,
             email,
             name,
@@ -150,22 +159,31 @@ export const createUser = async (data: any, creator : string) => {
             password,
             creator
         });
+        console.log("Create User Result:", createResult);
+        if (createResult?.errorMessage) {
+            throwError(GeneralErrorKey.STATUS_FAILED_DEPENDENCY, createResult.errorMessage);
+        }
 
         // Get user yang baru dibuat
-        const [createdUser] = await fetchUsersKeycloak(token, { username });
-        if (!createdUser?.id) {
+        const [userData] = await fetchUsersKeycloak(token, { username });
+        if (!userData) {
             throwError(UserErrorKey.USER_NOT_FOUND, "Failed to retrieve created user");
         }
 
-        // Assign role to user
-        await assignRoleToUser(createdUser.id, role_id, token);
-
         // Create User on DB local
-        await User.create({
-            data: {
-                mu_reference_key: createdUser.id,
-            },
+        const result = await Transaction(async (tx) => {
+            const UserTx = createUserModel(tx)
+            const result = await UserTx.create({
+                data: {
+                    mu_reference_key: userData.id,
+                },
+            });
+            return result;
         });
+        if (!result) throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR);
+
+        // Assign role to user
+        await assignRoleToUser(userData.id, role_id, token);
 
         // Send email
         sendEmail( email,
@@ -184,7 +202,7 @@ export const createUser = async (data: any, creator : string) => {
             true
         );
 
-        return createdUser;
+        return userData;
     } catch (err : any) {
         if (err?.isCustomError) {
             throw err;
@@ -218,7 +236,10 @@ export const updateUser = async (userId: string, data: any, updater: string) => 
         };
 
         // Update user Keycloak
-        await updateUserKeycloak(token, userId, dataToUpdate);
+        const updatedUser = await updateUserKeycloak(token, userId, dataToUpdate);
+        if (updatedUser?.errorMessage) {
+            throwError(GeneralErrorKey.STATUS_FAILED_DEPENDENCY, updatedUser.errorMessage);
+        }
 
         // Update password if it's changed and valid
         if (password && password.trim() !== "" && password === confirm_password) {
@@ -227,10 +248,16 @@ export const updateUser = async (userId: string, data: any, updater: string) => 
 
         if (role_id){
             // Delete existing roles
-            await deleteRoleUser(userId, token);
+            const deletedRole = await deleteRoleUser(userId, token);
+            if (deletedRole?.errorMessage) {
+                throwError(GeneralErrorKey.STATUS_FAILED_DEPENDENCY, deletedRole.errorMessage);
+            }
 
             // Assign role to user
-            await assignRoleToUser(userId, role_id, token);
+            const assignedRole = await assignRoleToUser(userId, role_id, token);
+            if (assignedRole?.errorMessage) {
+                throwError(GeneralErrorKey.STATUS_FAILED_DEPENDENCY, assignedRole.errorMessage);
+            }
         }
 
         return dataToUpdate;
@@ -256,7 +283,10 @@ export const deactivateUser = async (userId: string, updater: string) => {
         }
 
         // Deactivate user
-        await disableUserKeycloak(token, userId);
+        const result = await disableUserKeycloak(token, userId, updater);
+        if (result?.errorMessage) {
+            throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR, result.errorMessage);
+        }
 
         return;
     } catch (err: any) {
@@ -274,7 +304,6 @@ export const activateUser = async (userId: string, updater: string) => {
             throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR, "Failed to obtain admin token");
         }
 
-        // 
         // Get existing user data
         const existingUser = await keycloakRequest<any>("GET", `/users/${userId}`, token);
         if (!existingUser) {
@@ -282,7 +311,10 @@ export const activateUser = async (userId: string, updater: string) => {
         }
 
         // Activate user
-        await enableUserKeycloak(token, userId);
+        const result = await enableUserKeycloak(token, userId, updater);
+        if (result?.errorMessage) {
+            throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR, result.errorMessage);
+        }
 
         return;
     } catch (err: any) {
@@ -301,6 +333,9 @@ export const generateClientSecret = async (id: string) => {
         }
 
         const data = await generateSecretKey(token, id);
+        if (data?.errorMessage) {
+            throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR, data.errorMessage);
+        }
 
         return data;
     } catch (err: any) {

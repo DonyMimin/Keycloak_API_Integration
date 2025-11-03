@@ -79,8 +79,8 @@ export const fetchRoleById = async (roleId: string) => {
         }
 
         // Fetch role by id from Keycloak
-        const role = await keycloakRequest("GET", `/roles-by-id/${roleId}`, token);
-        if (!role) throwError(RoleErrorKey.ROLE_NOT_FOUND);
+        const role = await fetchRolesByID(roleId, token);
+        if (!role) throwError(RoleErrorKey.ROLE_NOT_FOUND, "Role not found");
 
         return role;
     } catch (err: any) {
@@ -102,7 +102,7 @@ export const fetchRoleList = async () => {
 
         // Fetch all roles from Keycloak
         const roles = await fetchRoles(token, {});
-        if (!roles) throwError(RoleErrorKey.ROLE_NOT_FOUND);
+        if (!roles) throwError(RoleErrorKey.ROLE_NOT_FOUND, "No roles found");
 
         // Return only id and name for list
         return roles.map((role: any) => ({ id: role.id, name: role.name }));
@@ -128,15 +128,18 @@ export const createRole = async (data: any, creator: string) => {
         if (Array.isArray(existingRoles) && existingRoles.some((r: any) => r.name === data.mr_name)) {
             throwError(RoleErrorKey.ROLE_ALREADY_EXISTS);
         }
-        console.log("Existing Roles:", existingRoles);
+
         // Create role in Keycloak
         const payload = {
             name: data.name,
             description: data.description,
             creator
         };
-        console.log("Create Role Payload:", payload);
-        await createRoleKeycloak(token, payload);
+
+        const result = await createRoleKeycloak(token, payload);
+        if (result?.errorMessage) {
+            throwError(GeneralErrorKey.STATUS_FAILED_DEPENDENCY, result.errorMessage);
+        }
 
         return;
     } catch (err: any) {
@@ -179,8 +182,10 @@ export const updateRole = async (roleId: string, data: any, updater: string) => 
             },
         };
 
-        await updateRoleKeycloak(roleId, token, payload);
-
+        const result = await updateRoleKeycloak(roleId, token, payload);
+        if (result?.errorMessage) {
+            throwError(GeneralErrorKey.STATUS_FAILED_DEPENDENCY, result.errorMessage);
+        }
 
         return;
     } catch (err: any) {

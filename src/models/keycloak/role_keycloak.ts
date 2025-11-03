@@ -4,16 +4,31 @@ import { keycloakRequest } from "@helpers/keycloak";
 
 export const fetchAllRoleUser = async (userId: string, token: string) => {
     const roles = await keycloakRequest("GET", `/users/${userId}/role-mappings`, token);
+    
+    if (roles?.errorMessage) {
+        return { error: true, ...roles };
+    }
+    
     return roles;
 };
 
 export const fetchRealmsRolesUser = async (userId: string, token: string) => {
     const roles = await keycloakRequest("GET", `/users/${userId}/role-mappings/realm`, token);
+    roles.errorMessage = "test";
+    if (roles?.errorMessage) {
+        return { error: true, ...roles };
+    }
+    
     return roles;
 };
 
 export const fetchClientRolesUser = async (userId: string, clientId: string, token: string) => {
     const roles = await keycloakRequest("GET", `/users/${userId}/role-mappings/clients/${clientId}`, token);
+    
+    if (roles?.errorMessage) {
+        return { error: true, ...roles };
+    }
+    
     return roles;
 };
 
@@ -22,16 +37,26 @@ export const fetchRoles = async (token: string, params: any = {}) => {
     // Keycloak's /roles endpoint for realm-level roles
     const query = params ? { params } : undefined;
     const roles = await keycloakRequest("GET", `/roles`, token, query);
+    
+    if (roles?.errorMessage) {
+        return { error: true, ...roles };
+    }
+    
     return roles;
 };
 
 export const fetchRolesByID = async (roleId: string, token: string) => {
     const role = await keycloakRequest("GET", `/roles-by-id/${roleId}`, token);
+    
+    if (role?.errorMessage) {
+        return { error: true, ...role };
+    }
+    
     return role;
 };
 
 export const createRoleKeycloak = async (token: string, data: any) => {
-    await keycloakRequest("POST", `/roles`, token, {
+    const result = await keycloakRequest("POST", `/roles`, token, {
         data: {
             name: data.name,
             description: data.description,
@@ -40,12 +65,24 @@ export const createRoleKeycloak = async (token: string, data: any) => {
             },
         },
     });
+    
+    if (result?.errorMessage) {
+        return { error: true, ...result };
+    }
+    
+    return result;
 };
 
 export const updateRoleKeycloak = async (roleId: string, token: string, dataToUpdate: any) => {
-    await keycloakRequest("PUT", `/roles-by-id/${roleId}`, token, {
+    const result = await keycloakRequest("PUT", `/roles-by-id/${roleId}`, token, {
         data: dataToUpdate,
     });
+    
+    if (result?.errorMessage) {
+        return { error: true, ...result };
+    }
+    
+    return result;
 }
 
 export const insertRoleRealmUser = async (userId: string, role_id: string, role_name: string, token: string) => {
@@ -53,6 +90,11 @@ export const insertRoleRealmUser = async (userId: string, role_id: string, role_
     const role = await keycloakRequest("POST", `/users/${userId}/role-mappings/realm`, token, {
         data: [{ id: role_id, name: role_name }],
     });
+    
+    if (role?.errorMessage) {
+        return { error: true, ...role };
+    }
+    
     return role;
 }
 
@@ -61,6 +103,11 @@ export const insertRoleClientUser = async (userId: string, role_id: string, role
     const role = await keycloakRequest("POST", `/users/${userId}/role-mappings/clients/${role_containerId}`, token, {
         data: [{ id: role_id, name: role_name }],
     });
+    
+    if (role?.errorMessage) {
+        return { error: true, ...role };
+    }
+    
     return role;
 }
 
@@ -68,6 +115,10 @@ export const deleteRoleUser = async (userId: string, token: string) => {
     const existingUserRoles = await fetchAllRoleUser(userId, token);
     if (!existingUserRoles) {
         throwError(RoleErrorKey.ROLE_NOT_FOUND, "No roles found for user");
+    }
+    
+    if (existingUserRoles?.errorMessage) {
+        return { error: true, ...existingUserRoles };
     }
 
     console.log("Existing User Roles:", existingUserRoles);
@@ -101,6 +152,6 @@ export const deleteRoleUser = async (userId: string, token: string) => {
         return { message: `All roles removed from user ${userId}` };
     } catch (err: any) {
         console.error(`Failed to remove roles from user ${userId}:`, err.response?.data || err.message);
-        throwError(RoleErrorKey.ROLE_ASSIGN_FAILED, "Failed to remove role(s) from user");
+        return { error: true, errorMessage: "Failed to remove roles from user"};
     }
 };

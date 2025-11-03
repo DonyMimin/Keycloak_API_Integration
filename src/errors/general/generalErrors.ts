@@ -22,5 +22,9 @@ export const GENERAL_ERRORS: Record<GeneralErrorKey, ErrorCode> = {
     [GeneralErrorKey.ACCESS_DENIED]: {
         message: 'Access Denied',
         code: 403,
-    }
+    },
+    [GeneralErrorKey.STATUS_FAILED_DEPENDENCY]: {
+        message: 'Failed Dependency',
+        code: 424,
+    },
 };
