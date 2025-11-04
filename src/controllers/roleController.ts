@@ -8,7 +8,7 @@ export const fetchRoleController = async (req: Request, res: Response, next: Nex
         const page = parseInt(req.query.page as string) || 1;
         const size = parseInt(req.query.size as string) || 10;
         const search = (req.query.search as string) || '';
-        const sort = (req.query.sort as any) || { mr_created_date: 'desc' };
+        const sort = (req.query.sort as any) || { name: 'desc' };
         const order = (req.query.order as string) === 'desc' ? 'desc' : 'asc';
 
         const roleList = await fetchRole({ page, size, search, sort, order });

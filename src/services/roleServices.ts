@@ -2,33 +2,26 @@ import { PaginationQueryParams } from '../types/PaginationQueryParams';
 import { throwError } from '@errors/throwError';
 import { GeneralErrorKey } from '@errors/general/generalErrorsKeys';
 import { RoleErrorKey } from '@errors/role/roleErrorsKeys';
-import { getCachedAdminToken, keycloakRequest } from '@helpers/keycloak';
+import { getCachedAdminToken } from '@helpers/keycloak';
 import { createRoleKeycloak, fetchRoles, fetchRolesByID, updateRoleKeycloak } from '@models/keycloak/role_keycloak';
+import { resolvePagination } from '@helpers/paginationUtils';
 
 export const fetchRole = async (params : PaginationQueryParams) => {
     try {
-        const { page, size, search, sort, order } = params;
-        const first = (page - 1) * size;
-        const max = size;
-
-        // --- SORT HANDLER ---
-        let sortField = typeof sort === "string" ? sort : Object.keys(sort || {})[0];
-        let sortOrder = order || (sort && (sort as any)[sortField]) || "asc";
-
-        // Valid fields for Keycloak roles
-        const validSortFields = ["name", "description"]; // adjust as needed
-        if (!validSortFields.includes(sortField)) {
-            sortField = "name";
-            sortOrder = "asc";
-        }
+        const validSortFields = ["name", "description"] as const;
+        const { size, skip, sort_by } = resolvePagination(
+            params,
+            [...validSortFields],
+            "name"
+        );
 
         // --- FILTER & SEARCH HANDLER ---
         const queryParams: Record<string, any> = {
-            first,
-            max,
+            first: skip,
+            max: size,
         };
-        if (search) {
-            queryParams.search = search;
+        if (params.search) {
+            queryParams.search = params.search;
         }
 
         // Get Token
@@ -45,16 +38,33 @@ export const fetchRole = async (params : PaginationQueryParams) => {
         const total = Array.isArray(allRoles) ? allRoles.length : 0;
 
         // --- FILTERED COUNT HANDLER ---
-        const filtered = Array.isArray(data) ? data.length : 0;
+        const filteredQueryParams: Record<string, any> = {};
+        if (params.search) filteredQueryParams.search = params.search;
+        const filteredRoles = await fetchRoles(token, filteredQueryParams);
+        const filtered = Array.isArray(filteredRoles) ? filteredRoles.length : 0;
 
         // --- SORT ---
-        const sortedData = data.sort((a: any, b: any) => {
-            const aVal = a[sortField] || "";
-            const bVal = b[sortField] || "";
-            return sortOrder === "desc"
-                ? bVal.localeCompare(aVal)
-                : aVal.localeCompare(bVal);
-        });
+        let sortedData = data;
+        if (sort_by && Object.keys(sort_by).length > 0) {
+            sortedData = data.sort((a: any, b: any) => {
+                for (const field of Object.keys(sort_by)) {
+                    const direction = sort_by[field as keyof typeof sort_by];
+                    const aVal = a[field];
+                    const bVal = b[field];
+                    if (aVal !== bVal) {
+                        // If both are numbers, sort numerically
+                        if (typeof aVal === 'number' && typeof bVal === 'number') {
+                            return direction === 'desc' ? bVal - aVal : aVal - bVal;
+                        }
+                        // Otherwise, sort as strings
+                        return direction === 'desc'
+                            ? String(bVal).localeCompare(String(aVal))
+                            : String(aVal).localeCompare(String(bVal));
+                    }
+                }
+                return 0;
+            });
+        }
 
         return {
             recordsTotal: total,

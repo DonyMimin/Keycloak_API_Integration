@@ -8,7 +8,7 @@ export const fetchUserController = async (req: Request, res: Response, next: Nex
         const page = parseInt(req.query.page as string) || 1;
         const size = parseInt(req.query.size as string) || 10;
         const search = (req.query.search as string) || '';
-        const sort = (req.query.sort as any) || { mu_created_date: 'desc' };
+        const sort = (req.query.sort as any) || { createdTimestamp: 'asc' };
         const order = (req.query.order as string) === 'desc' ? 'desc' : 'asc';
         const status = req.query.status ?? "";
 

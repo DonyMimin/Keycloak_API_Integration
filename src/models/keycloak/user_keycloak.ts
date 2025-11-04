@@ -23,18 +23,6 @@ export const fetchUsersKeycloak = async (token: string, queryParams: any) => {
     return users;
 }
 
-export const checkSameUsernameKeycloak = async (token: string, username: string) => {
-    const users = await keycloakRequest("GET", `/users`, token, {
-        params: { username },
-    });
-    
-    if (users?.errorMessage) {
-        return { error: true, ...users };
-    }
-    
-    return users;
-}
-
 export const createUserKeycloak = async (token: string, data: any) => {
     const user = await keycloakRequest("POST", `/users`, token, {
         data: {

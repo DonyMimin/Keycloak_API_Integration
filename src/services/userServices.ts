@@ -3,48 +3,38 @@ import { throwError } from '@errors/throwError';
 import { GeneralErrorKey } from '@errors/general/generalErrorsKeys';
 import { UserErrorKey } from '@errors/user/userErrorsKeys';
 import { assignRoleToUser, getCachedAdminToken, keycloakRequest } from '@helpers/keycloak';
-import { checkSameUsernameKeycloak, createUserKeycloak, disableUserKeycloak, enableUserKeycloak, fetchUserByIdKeycloak, fetchUsersKeycloak, generateSecretKey, updateUserKeycloak, updateUserPasswordKeycloak } from '@models/keycloak/user_keycloak';
+import { createUserKeycloak, disableUserKeycloak, enableUserKeycloak, fetchUserByIdKeycloak, fetchUsersKeycloak, generateSecretKey, updateUserKeycloak, updateUserPasswordKeycloak } from '@models/keycloak/user_keycloak';
 import { deleteRoleUser, fetchRealmsRolesUser } from '@models/keycloak/role_keycloak';
 import { sendEmail } from '@helpers/email';
 import { createUserModel } from '@models/User';
 import { Transaction } from '@helpers/transaction';
+import { resolvePagination } from '@helpers/paginationUtils';
+import { RoleErrorKey } from '@errors/role/roleErrorsKeys';
 
 export const fetchUser = async (params: PaginationQueryParams, status: any) => {
   try {
-    const { page, size, search, sort, order } = params;
-    const first = (page - 1) * size;
-    const max = size;
-
-    // --- SORT HANDLER ---
-    // Handle case: sort bisa string ('username') atau object ({ username: 'asc' })
-    let sortField = typeof sort === "string" ? sort : Object.keys(sort || {})[0];
-    let sortOrder = order || (sort && (sort as any)[sortField]) || "asc";
-
-    // Valid fields yang bisa disort Keycloak
-    const validSortFields = ["username", "email", "firstName", "lastName", "createdTimestamp"];
-    if (!validSortFields.includes(sortField)) {
-        sortField = "username"; // fallback
-        sortOrder = "asc";
-    }
+    const validSortFields = ["username", "email", "firstName", "createdTimestamp"] as const;
+    const { size, skip, sort_by } = resolvePagination(
+      params,
+      [...validSortFields],
+      "createdTimestamp"
+    );
 
     // --- FILTER & SEARCH HANDLER ---
     const queryParams: Record<string, any> = {
-        first,
-        max,
+      first: skip,
+      max: size,
     };
-
-    if (search) {
-        queryParams.search = search;
+    if (params.search) {
+      queryParams.search = params.search;
     }
-
-    // Filter by status (enabled/disabled)
     if (status === "enabled") queryParams.enabled = true;
     if (status === "disabled") queryParams.enabled = false;
 
     // Get Token
     const token = await getCachedAdminToken();
     if (!token) {
-        throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR, "Failed to obtain token");
+      throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR, "Failed to obtain token");
     }
 
     // --- REQUEST DATA USERS ---
@@ -55,43 +45,69 @@ export const fetchUser = async (params: PaginationQueryParams, status: any) => {
     const total = Array.isArray(allUsers) ? allUsers.length : 0;
 
     // --- FILTERED COUNT HANDLER ---
-    const filtered = Array.isArray(data) ? data.length : 0;
+    const filteredQueryParams: Record<string, any> = {};
+    if (params.search) filteredQueryParams.search = params.search;
+    if (status === "enabled") filteredQueryParams.enabled = true;
+    if (status === "disabled") filteredQueryParams.enabled = false;
+    const filteredUsers = await fetchUsersKeycloak(token, filteredQueryParams);
+    const filtered = Array.isArray(filteredUsers) ? filteredUsers.length : 0;
 
     // --- SORT ---
-    const sortedData = data.sort((a: any, b: any) => {
-        const aVal = a[sortField] || "";
-        const bVal = b[sortField] || "";
-        return sortOrder === "desc"
-            ? bVal.localeCompare(aVal)
-            : aVal.localeCompare(bVal);
-    });
+    let sortedData = data;
+    if (sort_by && Object.keys(sort_by).length > 0) {
+        sortedData = data.sort((a: any, b: any) => {
+            for (const field of Object.keys(sort_by)) {
+                const direction = sort_by[field as keyof typeof sort_by];
+                const aVal = a[field];
+                const bVal = b[field];
+                if (aVal !== bVal) {
+                    // If both are numbers, sort numerically
+                    if (typeof aVal === 'number' && typeof bVal === 'number') {
+                        return direction === 'desc' ? bVal - aVal : aVal - bVal;
+                    }
+                    // Otherwise, sort as strings
+                    return direction === 'desc'
+                        ? String(bVal).localeCompare(String(aVal))
+                        : String(aVal).localeCompare(String(bVal));
+                }
+            }
+            return 0;
+        });
+    }
 
+    // Get role user
     const usersWithRoles = await Promise.all(
         sortedData.map(async (user: any) => {
             const roleUsers = await fetchRealmsRolesUser(user.id, token);
-            const roleNames = Array.isArray(roleUsers) ? roleUsers.map((r: any) => r.name) : [];
+            if (!roleUsers) {
+                throwError(RoleErrorKey.ROLE_NOT_FOUND, "Role not found");
+            }
+
+            let roleNames = Object.values(roleUsers)
+                .filter(r => r && typeof r === 'object' && 'name' in r)
+                .map((r: any) => r.name);
+            
             return {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            firstName: user.firstName,
-            enabled: user.enabled,
-            createdTimestamp: user.createdTimestamp,
-            roles: roleNames,
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                firstName: user.firstName,
+                enabled: user.enabled,
+                createdTimestamp: user.createdTimestamp,
+                roles: roleNames,
             };
         })
     );
 
     return {
-        recordsTotal: total,
-        recordsFiltered: filtered,
-        data: usersWithRoles,
+      recordsTotal: total,
+      recordsFiltered: filtered,
+      data: usersWithRoles,
     };
   } catch (err: any) {
     if (err?.isCustomError) {
-        throw err;
+      throw err;
     }
-
     console.log(err);
     throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR);
   }
@@ -144,12 +160,6 @@ export const createUser = async (data: any, creator : string) => {
             throwError(GeneralErrorKey.INTERNAL_SERVER_ERROR, "Failed to obtain token");
         }
 
-        // Cek UNIQE by username
-        const existing = await checkSameUsernameKeycloak(token, username);
-        if (Array.isArray(existing) && existing.length > 0) {
-            throwError(UserErrorKey.USER_ALREADY_EXISTS);
-        }
-
         // Buat user baru di Keycloak
         const createResult = await createUserKeycloak(token, {
             username,
@@ -160,7 +170,7 @@ export const createUser = async (data: any, creator : string) => {
             creator
         });
         console.log("Create User Result:", createResult);
-        if (createResult?.errorMessage) {
+        if (createResult?.error) {
             throwError(GeneralErrorKey.STATUS_FAILED_DEPENDENCY, createResult.errorMessage);
         }
 
